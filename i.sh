@@ -10,6 +10,8 @@ command -v git >/dev/null || { apt-get update -qq && apt-get install -y -qq git;
 cat > /usr/local/bin/standby-deploy <<'EOF'
 #!/bin/bash
 set -uo pipefail
+exec 9>/run/standby-deploy.lock
+flock -n 9 || exit 0   # another update is already running
 REPO=https://github.com/standbystudios/standby-server.git
 APP=/opt/standby/app
 if [ ! -d "$APP/.git" ]; then
@@ -47,7 +49,7 @@ EOF
 systemctl daemon-reload
 systemctl enable --now standby-deploy.timer
 echo "Installing the first update now (this takes a few minutes)..."
-/usr/local/bin/standby-deploy
+systemctl start standby-deploy.service   # waits for the run to finish
 if [ -f /opt/standby/.deployed ]; then
   echo "AUTO-UPDATE INSTALLED. Your server now updates itself from GitHub."
 else
