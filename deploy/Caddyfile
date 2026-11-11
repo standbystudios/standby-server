@@ -26,4 +26,9 @@ signaturethrows.com {
 		root * /srv/sites/signaturethrows
 		file_server
 	}
+
+	# Show a readable message instead of an empty response on errors.
+	handle_errors {
+		respond "{err.status_code} {err.status_text}"
+	}
 }
