@@ -13,5 +13,7 @@ if docker ps -a --format '{{.Names}}' | grep -qx caddy; then
 fi
 
 docker compose up -d --build --remove-orphans
+# Apply any web-server config changes without downtime.
+docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --force || docker compose restart caddy
 docker image prune -f >/dev/null
 echo "Deployed $(git rev-parse --short HEAD) at $(date)"
