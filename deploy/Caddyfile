@@ -1,0 +1,29 @@
+{
+	email hello@signaturethrows.com
+}
+
+www.signaturethrows.com {
+	redir https://signaturethrows.com{uri} permanent
+}
+
+signaturethrows.com {
+	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Content-Security-Policy "default-src 'self'; script-src 'self' https://*.stripe.com; frame-src https://*.stripe.com; connect-src 'self' https://*.stripe.com; img-src 'self' data: https://*.stripe.com; style-src 'self' 'unsafe-inline'"
+	}
+
+	# The store's server handles checkout, Stripe webhooks, and the private order list.
+	@app path /api/* /webhooks/* /admin/* /healthz
+	handle @app {
+		reverse_proxy throws:4242
+	}
+
+	handle {
+		root * /srv/sites/signaturethrows
+		file_server
+	}
+}

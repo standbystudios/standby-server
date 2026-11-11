@@ -1,0 +1,31 @@
+# Everything that runs on standbystudios-main-1.
+# Secrets live only on the server in /opt/standby/secrets (never in this repo).
+name: standby
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../sites:/srv/sites:ro
+      - /opt/standby/caddy-data:/data
+      - /opt/standby/caddy-config:/config
+    depends_on:
+      - throws
+
+  throws:
+    build: ../apps/throws
+    restart: unless-stopped
+    env_file:
+      - path: /opt/standby/secrets/throws.env
+        required: false
+    environment:
+      BASE_URL: https://signaturethrows.com
+      PRODUCTS_FILE: data/products.sandbox.json
+    volumes:
+      - /opt/standby/data/throws:/data

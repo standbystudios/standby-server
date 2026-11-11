@@ -1,0 +1,14 @@
+{
+  "name": "signature-throws",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Signature Throws store: catalog, Stripe Checkout, and webhook-driven order fulfillment.",
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js"
+  },
+  "dependencies": {
+    "stripe": "23.1.0"
+  }
+}
