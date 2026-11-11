@@ -40,7 +40,7 @@ signaturethrows.com {
 	import readable_errors
 }
 
-# Private preview of the full store. Password-protected; not indexed by search engines.
+# Private preview of the full store. Password-protected; not indexed by search engines. (DNS: A preview -> droplet, gray cloud)
 preview.signaturethrows.com {
 	encode gzip
 	import security_headers
