@@ -2,33 +2,64 @@
 	email hello@signaturethrows.com
 }
 
-www.signaturethrows.com {
-	redir https://signaturethrows.com{uri} permanent
-}
-
-signaturethrows.com {
-	encode gzip
-
+(security_headers) {
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
-		Content-Security-Policy "default-src 'self'; script-src 'self' https://*.stripe.com; frame-src https://*.stripe.com; connect-src 'self' https://*.stripe.com; img-src 'self' data: https://*.stripe.com; style-src 'self' 'unsafe-inline'"
+		Content-Security-Policy "default-src 'self'; script-src 'self' https://*.stripe.com; frame-src https://*.stripe.com; connect-src 'self' https://*.stripe.com; img-src 'self' data: https://*.stripe.com; style-src 'self' 'unsafe-inline'; font-src 'self'"
+	}
+}
+
+(readable_errors) {
+	handle_errors {
+		respond "{err.status_code} {err.status_text}"
+	}
+}
+
+www.signaturethrows.com {
+	redir https://signaturethrows.com{uri} permanent
+}
+
+# Public address: "opening soon" page until the store is approved.
+# Stripe webhooks and the health check stay reachable here.
+signaturethrows.com {
+	encode gzip
+	import security_headers
+
+	@app path /webhooks/* /healthz
+	handle @app {
+		reverse_proxy throws:4242
 	}
 
-	# The store's server handles checkout, Stripe webhooks, and the private order list.
-	@app path /api/* /webhooks/* /admin/* /healthz
+	handle {
+		root * /srv/sites/coming-soon
+		file_server
+	}
+
+	import readable_errors
+}
+
+# Private preview of the full store. Password-protected; not indexed by search engines.
+preview.signaturethrows.com {
+	encode gzip
+	import security_headers
+	header X-Robots-Tag "noindex, nofollow"
+
+	basic_auth {
+		preview $2b$10$N4sCRamhfeE.KdQuK0NxhuRJuSJd/uuvL8h3A5R8Hw2snnZSOIsIK
+	}
+
+	@app path /api/* /admin/* /healthz
 	handle @app {
 		reverse_proxy throws:4242
 	}
 
 	handle {
 		root * /srv/sites/signaturethrows
+		try_files {path} {path}.html {path}/
 		file_server
 	}
 
-	# Show a readable message instead of an empty response on errors.
-	handle_errors {
-		respond "{err.status_code} {err.status_text}"
-	}
+	import readable_errors
 }

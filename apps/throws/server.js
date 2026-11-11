@@ -3,6 +3,7 @@
 // Stripe SDK.
 import http from 'node:http';
 import fs from 'node:fs';
+import path from 'node:path';
 import crypto from 'node:crypto';
 import { CATALOG, SHIPPING_FLAT_CENTS, unitPriceFor } from './catalog.js';
 import { stripe, webhookVerifier } from './stripe-client.js';
@@ -36,6 +37,111 @@ function readBody(req, limit = 1_000_000) {
   });
 }
 
+const DESIGN_DIR = process.env.DESIGN_DIR || './data/designs';
+fs.mkdirSync(DESIGN_DIR, { recursive: true });
+const STATIC_DIR = process.env.STATIC_DIR; // local development only; Caddy serves the site in production
+
+function safeDesignId(id) {
+  const s = String(id || '');
+  return /^d_[a-f0-9]{16}$/.test(s) ? s : null;
+}
+
+function clientIp(req) {
+  return String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+}
+
+// Simple in-memory rate limit: `max` actions per IP per hour.
+const hits = new Map();
+function rateLimited(req, bucket, max) {
+  const key = `${bucket}:${clientIp(req)}`;
+  const now = Date.now();
+  const recent = (hits.get(key) || []).filter((t) => now - t < 3600_000);
+  recent.push(now);
+  hits.set(key, recent);
+  return recent.length > max;
+}
+
+// ---------- Catalog (prices shown on the site come from here) ----------
+function handleCatalog(req, res) {
+  const products = Object.entries(CATALOG).map(([sku, p]) => ({
+    sku, name: p.name, description: p.description, kind: p.kind,
+    minQty: p.minQty, tiers: p.tiers, setupFee: p.setupFee || 0,
+  }));
+  return send(res, 200, { products, shippingFlatCents: SHIPPING_FLAT_CENTS, checkoutOpen: !!stripe });
+}
+
+// ---------- Design uploads ----------
+const UPLOAD_TYPES = [
+  { ext: 'png', test: (b) => b.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47])) },
+  { ext: 'jpg', test: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  { ext: 'pdf', test: (b) => b.subarray(0, 4).toString('latin1') === '%PDF' },
+  { ext: 'svg', test: (b) => /<svg[\s>]/i.test(b.subarray(0, 2048).toString('utf8')) },
+];
+
+async function handleDesignUpload(req, res) {
+  if (rateLimited(req, 'upload', 30)) return send(res, 429, { error: 'Too many uploads. Try again in an hour.' });
+  let body;
+  try { body = await readBody(req, 10 * 1024 * 1024); }
+  catch { return send(res, 413, { error: 'That file is over 10 MB. Send a smaller version.' }); }
+  if (body.length < 100) return send(res, 400, { error: 'That file is empty.' });
+  const type = UPLOAD_TYPES.find((t) => t.test(body));
+  if (!type) return send(res, 415, { error: 'Upload a PNG, JPG, SVG, or PDF file.' });
+  const designId = 'd_' + crypto.randomBytes(8).toString('hex');
+  fs.writeFileSync(path.join(DESIGN_DIR, `${designId}.${type.ext}`), body);
+  return send(res, 200, { designId });
+}
+
+// ---------- Order requests (used before online checkout opens) ----------
+async function handleRequest(req, res) {
+  if (rateLimited(req, 'request', 10)) return send(res, 429, { error: 'Too many requests. Try again in an hour.' });
+  let input;
+  try { input = JSON.parse((await readBody(req, 50_000)).toString('utf8')); }
+  catch { return send(res, 400, { error: 'Invalid request.' }); }
+
+  const name = String(input.name || '').trim().slice(0, 120);
+  const email = String(input.email || '').trim().slice(0, 200);
+  if (!name) return send(res, 400, { error: 'Add your name.' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return send(res, 400, { error: 'Add an email address we can reply to.' });
+
+  const items = [];
+  let estimate = 0;
+  for (const it of (Array.isArray(input.items) ? input.items.slice(0, 20) : [])) {
+    const p = CATALOG[it.sku];
+    const qty = Math.floor(Number(it.quantity));
+    if (!p || !(qty > 0) || qty > 100000) continue;
+    let unit = p.tiers[0].unit;
+    for (const t of p.tiers) if (qty >= t.min) unit = t.unit;
+    estimate += unit * qty + (p.setupFee || 0);
+    items.push({ sku: it.sku, quantity: qty, designId: safeDesignId(it.designId), notes: it.notes ? String(it.notes).slice(0, 1000) : null });
+  }
+  if (items.length === 0) return send(res, 400, { error: 'Choose at least one product and a quantity.' });
+
+  const id = 'RQ-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+  db.createRequest({
+    id, name, email,
+    phone: input.phone ? String(input.phone).slice(0, 40) : null,
+    fulfillment: input.fulfillment === 'ship' ? 'ship' : 'pickup',
+    neededBy: input.neededBy ? String(input.neededBy).slice(0, 20) : null,
+    items, estimateCents: estimate,
+    notes: input.notes ? String(input.notes).slice(0, 2000) : null,
+  });
+  console.log(`New order request ${id}`);
+  return send(res, 200, { requestId: id });
+}
+
+// ---------- Local development: serve the website files ----------
+const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.png': 'image/png', '.ico': 'image/x-icon' };
+function serveStatic(url, res) {
+  let p = decodeURIComponent(url.pathname);
+  if (p.endsWith('/')) p += 'index.html';
+  const file = path.resolve(STATIC_DIR, '.' + p);
+  if (!file.startsWith(path.resolve(STATIC_DIR))) return send(res, 403, { error: 'Forbidden' });
+  const target = fs.existsSync(file) ? file : (fs.existsSync(file + '.html') ? file + '.html' : null);
+  if (!target) return send(res, 404, { error: 'Not found' });
+  res.writeHead(200, { 'Content-Type': MIME[path.extname(target)] || 'application/octet-stream' });
+  fs.createReadStream(target).pipe(res);
+}
+
 // ---------- Checkout ----------
 async function handleCheckout(req, res) {
   if (!stripe) return send(res, 503, { error: 'The store is not taking orders yet.' });
@@ -51,14 +157,18 @@ async function handleCheckout(req, res) {
   const orderItems = [];
   let subtotal = 0;
   try {
-    for (const { sku, quantity, designId } of rawItems) {
+    for (const { sku, quantity, designId, notes } of rawItems) {
       const qty = Number(quantity);
       const unit = unitPriceFor(sku, qty); // validates sku, minimums, max
       lineItems.push({
         price_data: { currency: 'usd', product: PRODUCT_IDS[sku], unit_amount: unit },
         quantity: qty,
       });
-      orderItems.push({ sku, quantity: qty, unitCents: unit, designId: designId ? String(designId).slice(0, 64) : null });
+      orderItems.push({
+        sku, quantity: qty, unitCents: unit,
+        designId: safeDesignId(designId),
+        notes: notes ? String(notes).slice(0, 1000) : null,
+      });
       subtotal += unit * qty;
       if (CATALOG[sku].setupFee) {
         lineItems.push({
@@ -174,16 +284,21 @@ function handleOrders(req, res) {
     items_json: undefined,
     shipping_json: undefined,
   }));
-  return send(res, 200, { orders });
+  const requests = db.listRequests().map((r) => ({ ...r, items: JSON.parse(r.items_json), items_json: undefined }));
+  return send(res, 200, { orders, requests });
 }
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, BASE_URL);
   try {
+    if (req.method === 'GET' && url.pathname === '/api/catalog') return handleCatalog(req, res);
+    if (req.method === 'POST' && url.pathname === '/api/designs') return await handleDesignUpload(req, res);
+    if (req.method === 'POST' && url.pathname === '/api/requests') return await handleRequest(req, res);
     if (req.method === 'POST' && url.pathname === '/api/checkout') return await handleCheckout(req, res);
     if (req.method === 'POST' && url.pathname === '/webhooks/stripe') return await handleWebhook(req, res);
     if (req.method === 'GET' && url.pathname === '/admin/orders') return handleOrders(req, res);
     if (req.method === 'GET' && url.pathname === '/healthz') return send(res, 200, { ok: true });
+    if (STATIC_DIR && req.method === 'GET') return serveStatic(url, res);
     return send(res, 404, { error: 'Not found' });
   } catch (err) {
     console.error('Unhandled error', err.message);

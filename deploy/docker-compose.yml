@@ -27,5 +27,6 @@ services:
     environment:
       BASE_URL: https://signaturethrows.com
       PRODUCTS_FILE: data/products.sandbox.json
+      DESIGN_DIR: /data/designs
     volumes:
       - /opt/standby/data/throws:/data

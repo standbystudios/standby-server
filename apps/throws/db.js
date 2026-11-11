@@ -21,6 +21,19 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     paid_at TEXT
   );
+  CREATE TABLE IF NOT EXISTS requests (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT,
+    fulfillment TEXT NOT NULL,
+    needed_by TEXT,
+    items_json TEXT NOT NULL,
+    estimate_cents INTEGER,
+    notes TEXT,
+    status TEXT NOT NULL DEFAULT 'new',  -- new | contacted | converted | closed
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
   CREATE TABLE IF NOT EXISTS processed_events (
     event_id TEXT PRIMARY KEY,
     processed_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -62,6 +75,17 @@ export function markPaid(orderId, { email, shipping, amountTotal }) {
            amount_total_cents = ?, paid_at = datetime('now')
      WHERE id = ? AND status IN ('pending', 'payment_failed')`
   ).run(email ?? null, shipping ? JSON.stringify(shipping) : null, amountTotal ?? null, orderId);
+}
+
+export function createRequest(r) {
+  db.prepare(
+    `INSERT INTO requests (id, name, email, phone, fulfillment, needed_by, items_json, estimate_cents, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(r.id, r.name, r.email, r.phone, r.fulfillment, r.neededBy, JSON.stringify(r.items), r.estimateCents, r.notes);
+}
+
+export function listRequests(limit = 200) {
+  return db.prepare('SELECT * FROM requests ORDER BY created_at DESC LIMIT ?').all(limit);
 }
 
 export function markStatus(orderId, status) {
