@@ -18,6 +18,7 @@
       <nav class="site-nav" aria-label="Main">
         <a href="#prices">Prices</a>
         <a class="hide-sm" href="#how">How it works</a>
+        <a class="hide-sm" href="#custom">Fully custom</a>
         <a href="#order">Order</a>
       </nav>
     </div>
@@ -166,11 +167,56 @@
       </div>
     </section>
 
-    <section class="section" id="dates" aria-labelledby="dates-title">
+
+    <section class="section" id="custom" aria-labelledby="custom-title">
+      <div class="wrap">
+        <h2 id="custom-title">Fully custom pieces</h2>
+        <p class="section-intro">Want something nobody else throws, like a glitter heel, a crawfish, or your float's mascot? We'll sculpt it from scratch and work out the details with you directly.</p>
+        <table class="prices custom-terms">
+          <caption class="skip">What to expect with a fully custom piece</caption>
+          <tbody>
+            <tr><th scope="row">Minimum</th><td>12 pieces per design. One-off showpieces (ball favors, gifts for your captain) by request.</td></tr>
+            <tr><th scope="row">Size</th><td>Up to 4 inches across for throws. Up to 8 inches for display pieces that aren't thrown.</td></tr>
+            <tr><th scope="row">Colors</th><td>Up to 4 printed colors per piece. Hand-applied metallic or glitter finishes available.</td></tr>
+            <tr><th scope="row">Design fee</th><td>$75 for the 3D design and up to 2 rounds of changes. Credited back on orders of 100 or more pieces. Extra rounds are $25 each.</td></tr>
+            <tr><th scope="row">Sample</th><td>Optional physical sample for $25, credited back when you order.</td></tr>
+            <tr><th scope="row">Typical price</th><td>Usually $4 to $15 per piece, depending on size, detail, colors, and quantity. You get an exact quote before anything is designed.</td></tr>
+            <tr><th scope="row">Timing</th><td>Design preview in 3 to 5 business days. Printing takes 10 to 15 business days after you approve.</td></tr>
+            <tr><th scope="row">Payment</th><td>Design fee up front. 50% deposit to start printing, the rest when your order is ready.</td></tr>
+            <tr><th scope="row">Your design</th><td>We keep the 3D file so you can reorder anytime, and we never sell your design to anyone else.</td></tr>
+          </tbody>
+        </table>
+        <p class="prices-note">We can't copy characters, logos, or designs from movies, sports teams, or other brands. We're happy to make an original piece in the same spirit.</p>
+
+        <form class="custom-form" id="custom-form" novalidate>
+          <h3>Tell us your idea</h3>
+          <div class="field"><label for="c-idea">What do you have in mind?</label><textarea id="c-idea" name="idea" required placeholder="A red glitter high heel with our krewe name on the sole"></textarea></div>
+          <div class="row">
+            <div class="field"><label for="c-qty">About how many?</label><input type="number" id="c-qty" name="quantity" inputmode="numeric" min="1" step="1" value="12"><p class="hint">12 or more for throws.</p></div>
+            <div class="field"><label for="c-size">About how big?</label><input type="text" id="c-size" name="size" placeholder="3 inches long"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label for="c-colors">Colors</label><input type="text" id="c-colors" name="colors" placeholder="Red, gold"></div>
+            <div class="field"><label for="c-needed">Date you need it by</label><input type="date" id="c-needed" name="neededBy"></div>
+          </div>
+          <div class="field"><label for="c-file">Reference picture or sketch (optional)</label><input type="file" id="c-file" name="design" accept=".png,.jpg,.jpeg,.svg,.pdf,image/png,image/jpeg,image/svg+xml,application/pdf"><p class="hint">PNG, JPG, SVG, or PDF, up to 10 MB.</p></div>
+          <div class="row">
+            <div class="field"><label for="c-name">Name</label><input type="text" id="c-name" name="name" autocomplete="name" required></div>
+            <div class="field"><label for="c-email">Email</label><input type="email" id="c-email" name="email" autocomplete="email" required></div>
+          </div>
+          <div class="field"><label for="c-phone">Phone (optional)</label><input type="tel" id="c-phone" name="phone" autocomplete="tel"><p class="hint">Add it if you'd rather talk it through on a call.</p></div>
+          <button type="submit" class="button" id="custom-submit">Request a quote</button>
+          <p class="form-message" id="custom-message" role="status"></p>
+        </form>
+      </div>
+    </section>
+
+    <section class="section paper" id="dates" aria-labelledby="dates-title">
       <div class="wrap">
         <h2 id="dates-title">Order deadlines for Carnival 2027</h2>
         <p class="section-intro">Mardi Gras is Tuesday, February 9, 2027. Order by these dates so your throws arrive before your parade.</p>
         <ul class="dates">
+          <li><strong>January 8</strong>Fully custom pieces</li>
           <li><strong>January 15</strong>Printed throws</li>
           <li><strong>January 15</strong>Custom printed cups</li>
           <li><strong>January 20</strong>Plain bead cases</li>
@@ -178,7 +224,7 @@
       </div>
     </section>
 
-    <section class="section paper" id="faq" aria-labelledby="faq-title">
+    <section class="section" id="faq" aria-labelledby="faq-title">
       <div class="wrap">
         <h2 id="faq-title">Questions</h2>
         <div class="faq">
@@ -215,5 +261,6 @@
   </footer>
 
   <script src="assets/order.js" defer></script>
+  <script src="assets/custom.js" defer></script>
 </body>
 </html>

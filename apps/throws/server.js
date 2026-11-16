@@ -106,8 +106,14 @@ async function handleRequest(req, res) {
   const items = [];
   let estimate = 0;
   for (const it of (Array.isArray(input.items) ? input.items.slice(0, 20) : [])) {
-    const p = CATALOG[it.sku];
     const qty = Math.floor(Number(it.quantity));
+    if (it.sku === 'fully_custom') {
+      // Fully custom pieces are quoted by hand, so they carry no estimate.
+      if (!(qty > 0) || qty > 100000) continue;
+      items.push({ sku: 'fully_custom', quantity: qty, designId: safeDesignId(it.designId), notes: it.notes ? String(it.notes).slice(0, 2000) : null });
+      continue;
+    }
+    const p = CATALOG[it.sku];
     if (!p || !(qty > 0) || qty > 100000) continue;
     let unit = p.tiers[0].unit;
     for (const t of p.tiers) if (qty >= t.min) unit = t.unit;
