@@ -47,7 +47,7 @@ preview.signaturethrows.com {
 	header X-Robots-Tag "noindex, nofollow"
 
 	basic_auth {
-		preview $2b$10$N4sCRamhfeE.KdQuK0NxhuRJuSJd/uuvL8h3A5R8Hw2snnZSOIsIK
+		preview $2b$10$LSofLVZuNSRRJq4RdHpmje6Ngy5T.HthoKghTC.6LmNx2LWb4RvI.
 	}
 
 	@app path /api/* /admin/* /healthz
