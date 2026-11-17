@@ -13,6 +13,10 @@ const PORT = Number(process.env.PORT || 4242);
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+// Orders with more printed pieces than this skip online checkout and come in as
+// requests, so the owner confirms printer capacity before taking payment.
+// Raise it (env LARGE_ORDER_PIECES) once there's cash on hand to buy printers same-day.
+const LARGE_ORDER_PIECES = Number(process.env.LARGE_ORDER_PIECES) || 1000;
 // Fixed label for comparing checkout flows in the Stripe Dashboard.
 const INTEGRATION_ID = 'signature_throws_web_qkvrmtzh';
 
@@ -67,7 +71,7 @@ function handleCatalog(req, res) {
     sku, name: p.name, description: p.description, kind: p.kind,
     minQty: p.minQty, tiers: p.tiers, setupFee: p.setupFee || 0,
   }));
-  return send(res, 200, { products, shippingFlatCents: SHIPPING_FLAT_CENTS, checkoutOpen: !!stripe });
+  return send(res, 200, { products, shippingFlatCents: SHIPPING_FLAT_CENTS, checkoutOpen: !!stripe, largeOrderPieces: LARGE_ORDER_PIECES });
 }
 
 // ---------- Design uploads ----------
@@ -158,6 +162,12 @@ async function handleCheckout(req, res) {
   const fulfillment = input.fulfillment === 'ship' ? 'ship' : 'pickup';
   const rawItems = Array.isArray(input.items) ? input.items.slice(0, 20) : [];
   if (rawItems.length === 0) return send(res, 400, { error: 'Your cart is empty.' });
+
+  const printedPieces = rawItems.reduce((n, it) =>
+    n + (CATALOG[it.sku]?.kind === 'printed' ? Math.max(0, Number(it.quantity) || 0) : 0), 0);
+  if (printedPieces > LARGE_ORDER_PIECES) {
+    return send(res, 409, { error: `Orders over ${LARGE_ORDER_PIECES.toLocaleString('en-US')} printed pieces are confirmed by us first. Send it as a request and we'll email your proof, final price and a payment link.` });
+  }
 
   const lineItems = [];
   const orderItems = [];

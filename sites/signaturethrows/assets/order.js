@@ -158,6 +158,13 @@
     });
   }
 
+  function printedPieces(lines) {
+    return lines.reduce((n, l) => n + (l.product.kind === 'printed' && l.quantity > 0 ? l.quantity : 0), 0);
+  }
+  function isLargeOrder(lines) {
+    return !!catalog && catalog.checkoutOpen && printedPieces(lines) > (catalog.largeOrderPieces || 1000);
+  }
+
   function updateSummary() {
     if (!catalog) return;
     const dl = $('#summary-lines');
@@ -191,6 +198,11 @@
       dl.append(el('dt', { text: 'Pickup in Metairie' }), el('dd', { text: 'Free' }));
     }
     dl.append(el('dt', { class: 'total', text: 'Estimated total' }), el('dd', { class: 'total', text: money(total) }));
+    if (catalog.checkoutOpen) {
+      const large = isLargeOrder(readLines());
+      $('#submit-button').textContent = large ? 'Send request' : 'Continue to payment';
+      $('#large-order-note').hidden = !large;
+    }
   }
 
   function showMessage(text, kind) {
@@ -235,7 +247,8 @@
       }
       const fulfillment = new FormData(form).get('fulfillment');
 
-      if (catalog.checkoutOpen) {
+      const large = isLargeOrder(lines);
+      if (catalog.checkoutOpen && !large) {
         const res = await fetch('/api/checkout', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ items, fulfillment }),
@@ -258,7 +271,9 @@
       form.reset();
       $('#line-items').replaceChildren();
       addLineItem('medallion');
-      showMessage(`Request ${data.requestId} sent. We'll email your proof and final price within two business days.`, 'ok');
+      showMessage(large
+        ? `Request ${data.requestId} sent. We'll confirm your dates and email your proof, final price, and a secure payment link within two business days.`
+        : `Request ${data.requestId} sent. We'll email your proof and final price within two business days.`, 'ok');
     } catch (err) {
       showMessage(err.message, 'error');
     } finally {

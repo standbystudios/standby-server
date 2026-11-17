@@ -190,6 +190,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px
 .thanks { padding: clamp(48px, 10vw, 120px) 0; }
 
 /* ---------- Small screens ---------- */
+.large-order-note { margin-top: 12px; font-size: 0.92rem; }
+
 /* Fully custom pieces */
 .custom-terms th { text-align: left; white-space: nowrap; width: 9rem; vertical-align: top; }
 .custom-form { margin-top: 36px; max-width: 720px; background: var(--paper); border: 1.5px solid var(--line); border-radius: var(--radius-lg); padding: clamp(20px, 4vw, 32px); }
